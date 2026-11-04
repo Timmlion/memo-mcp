@@ -7,6 +7,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { mcpAuthRouter, getOAuthProtectedResourceMetadataUrl } from '@modelcontextprotocol/sdk/server/auth/router.js';
 import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
 import { buildServer } from './tools.js';
+import { handleModern, isModernRequest } from './modern.js';
 import { approvePageError, handleApprove, makeProvider } from './oauth.js';
 import { BASE_URL, PLAN_URL, PORT, RESOURCE_URL } from './config.js';
 import { db, load, readUpload } from './store.js';
@@ -24,7 +25,7 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-ID'
+    'Content-Type, Authorization, Mcp-Session-Id, MCP-Protocol-Version, Mcp-Method, Mcp-Name, Last-Event-ID'
   );
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
@@ -117,9 +118,10 @@ async function handleMcp(req, res) {
   }
 }
 
-app.post('/mcp', handleMcp);
-app.get('/mcp', handleMcp);
-app.delete('/mcp', handleMcp);
+app.post('/mcp', (req, res) => (isModernRequest(req) ? handleModern(req, res) : handleMcp(req, res)));
+for (const method of ['get', 'delete']) {
+  app[method]('/mcp', (req, res) => (isModernRequest(req) ? handleModern(req, res) : handleMcp(req, res)));
+}
 
 app.use((_req, res) => res.status(404).type('text').send('not found'));
 
