@@ -19,6 +19,15 @@ const PROMPT = `Transcribe the speech in this audio. Reply with JSON only, no co
 {"segments":[{"start":<seconds>,"end":<seconds>,"text":"..."}]}
 One segment per sentence or short phrase. start and end are numbers in seconds from the beginning of the audio.`;
 
+const RETRY_HINT = `Your previous answer gave every segment the same timestamp. Give each segment a start and end in seconds that increase from the beginning of the audio: the first segment starts at 0, and the last ends at the length of the file.`;
+
+export function degenerate(result) {
+  const starts = new Set(result.segments.map((s) => s.start));
+  const longest = Math.max(...result.segments.map((s) => s.end), 0);
+  const words = result.segments.reduce((n, s) => n + s.text.split(/\s+/).length, 0);
+  return starts.size < 2 && words > 5 && longest < 1;
+}
+
 function audioFormat(contentType, url) {
   const type = String(contentType || '').split(';')[0].trim().toLowerCase();
   const hit = FORMATS.find(([mime]) => mime === type);
@@ -28,7 +37,7 @@ function audioFormat(contentType, url) {
   return 'mp3';
 }
 
-function parseSegments(raw) {
+export function parseSegments(raw) {
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
   if (start < 0 || end < 0) throw new Error('model did not return JSON');
@@ -57,7 +66,14 @@ export async function transcribeAudio(url) {
   const buf = Buffer.from(await audioRes.arrayBuffer());
   if (!buf.length) throw new Error('the audio file is empty');
   if (buf.length > MAX_BYTES) throw new Error(`the audio is over ${MAX_BYTES} bytes`);
+  const format = audioFormat(audioRes.headers.get('content-type'), url);
 
+  const first = await callModel(buf, format, PROMPT);
+  if (!degenerate(first)) return first;
+  return callModel(buf, format, `${PROMPT}\n\n${RETRY_HINT}`);
+}
+
+async function callModel(buf, format, prompt) {
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -71,10 +87,10 @@ export async function transcribeAudio(url) {
         {
           role: 'user',
           content: [
-            { type: 'text', text: PROMPT },
+            { type: 'text', text: prompt },
             {
               type: 'input_audio',
-              input_audio: { data: buf.toString('base64'), format: audioFormat(audioRes.headers.get('content-type'), url) }
+              input_audio: { data: buf.toString('base64'), format }
             }
           ]
         }
