@@ -60,6 +60,7 @@ export function findNotes(query) {
 
 export function addUpload({ name, mime, bytes }) {
   const id = randomUUID();
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
   fs.writeFileSync(path.join(UPLOAD_DIR, id), bytes);
   const file = { id, name, mime, size: bytes.length, createdAt: nowIso() };
   state.uploads.push(file);

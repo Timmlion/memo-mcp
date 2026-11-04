@@ -142,3 +142,15 @@ test('a modern request is recognised by its header or its _meta', () => {
   // An unknown version is answered with the supported list instead of a legacy error.
   assert.equal(isModernRequest(request(rpc('tools/list'), { 'mcp-protocol-version': '2019-01-01' })), true);
 });
+
+test('a multi-megabyte upload goes through instead of blowing the regex stack', async () => {
+  const big = Buffer.alloc(6 * 1024 * 1024, 'line of a log file\n');
+  const res = await call(
+    rpc('tools/call', {
+      name: 'upload',
+      arguments: { name: 'big.log', mime: 'text/plain', content_base64: big.toString('base64') }
+    })
+  );
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload.result.structuredContent.size, big.length);
+});

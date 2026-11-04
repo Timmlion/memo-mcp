@@ -5,6 +5,8 @@ import { transcribeAudio } from './transcribe.js';
 import { BASE_URL } from './config.js';
 
 const BASE64 = /^[A-Za-z0-9+/\r\n]{200,}={0,2}$/;
+// Only the shape matters, and testing 11 MB of base64 overflows the regex stack: check a sample.
+const looksBase64 = (value) => value.length >= 200 && BASE64.test(value.slice(0, 4096));
 
 // A stranger calls these tools. Accept the field names a client is likely to use.
 function pickUpload(input) {
@@ -12,7 +14,7 @@ function pickUpload(input) {
   let bytes = null;
   for (const key of keys) {
     const value = input[key];
-    if (typeof value === 'string' && BASE64.test(value)) {
+    if (typeof value === 'string' && looksBase64(value)) {
       bytes = Buffer.from(value.replace(/\s/g, ''), 'base64');
       break;
     }
