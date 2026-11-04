@@ -1,0 +1,18 @@
+{
+  "name": "memo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A remote MCP server: notes, uploads, transcription. Speaks MCP 2025-11-25 over Streamable HTTP.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "client": "node scripts/client.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "express": "^5.2.1",
+    "zod": "^4.1.0"
+  }
+}

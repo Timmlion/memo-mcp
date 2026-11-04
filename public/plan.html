@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>memo — a small MCP server</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font: 16px/1.6 system-ui, sans-serif; max-width: 46rem; margin: 3rem auto; padding: 0 1.2rem; }
+      h1 { margin-bottom: .2rem; }
+      .sub { opacity: .7; margin-top: 0; }
+      table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+      th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid #8884; vertical-align: top; }
+      th { font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; opacity: .7; }
+      code { font-size: .9em; background: #8882; padding: .1em .3em; border-radius: .25em; }
+      h2 { margin-top: 2rem; }
+    </style>
+  </head>
+  <body>
+    <h1>memo</h1>
+    <p class="sub">A remote MCP server that keeps notes, stores files and transcribes audio.</p>
+
+    <p>
+      Endpoint: <code>https://memo.ataga.ovh/mcp</code> — Streamable HTTP, MCP revision
+      <code>2025-11-25</code> (older revisions <code>2025-06-18</code> and <code>2025-03-26</code> work too).
+      This server is a student project, not a product.
+    </p>
+
+    <h2>What the tools do</h2>
+    <table>
+      <tr><th>Tool</th><th>Input</th><th>Result</th></tr>
+      <tr>
+        <td><code>memo_write</code></td>
+        <td><code>{ text: string }</code></td>
+        <td><code>{ id, text, createdAt }</code> — the note is saved on this server.</td>
+      </tr>
+      <tr>
+        <td><code>memo_search</code></td>
+        <td><code>{ query?: string }</code></td>
+        <td><code>{ notes: [{ id, text, createdAt }] }</code> — case-insensitive substring match, newest first. An empty query returns every note.</td>
+      </tr>
+      <tr>
+        <td><code>upload</code></td>
+        <td><code>{ name?, mime?, content_base64?, text? }</code></td>
+        <td><code>{ url, id, name, size }</code> — the file is stored here and <code>url</code> is public: anyone with it can open the file.</td>
+      </tr>
+      <tr>
+        <td><code>transcribe</code></td>
+        <td><code>{ url: string }</code></td>
+        <td><code>{ segments: [{ start, end, text }], duration }</code> — <code>start</code> and <code>end</code> are seconds.</td>
+      </tr>
+    </table>
+    <p>
+      Every tool declares an output schema and returns structured content that matches it, plus the same
+      data as text.
+    </p>
+
+    <h2>How sign-in works</h2>
+    <p>
+      The server is its own authorization server. A client registers itself by dynamic client registration,
+      then opens an authorization page. The owner of this server reads that page and enters a pass phrase to
+      approve the client. The client then trades a PKCE authorization code for a bearer token, valid for 12
+      hours, with a refresh token valid for 30 days.
+    </p>
+    <ul>
+      <li>Protected resource metadata: <code>/.well-known/oauth-protected-resource/mcp</code></li>
+      <li>Authorization server metadata: <code>/.well-known/oauth-authorization-server</code></li>
+      <li>Registration: <code>POST /register</code> (public)</li>
+      <li>Approval: <code>GET /authorize</code>, then <code>POST /approve</code> with the pass phrase</li>
+      <li>Token and refresh: <code>POST /token</code></li>
+      <li>Revocation: <code>POST /revoke</code></li>
+    </ul>
+    <p>
+      Every endpoint under <code>/mcp</code> needs a bearer token. Requests without one get
+      <code>401</code> and a <code>WWW-Authenticate</code> header that points at the protected resource
+      metadata above.
+    </p>
+
+    <h2>What data it keeps</h2>
+    <ul>
+      <li>Notes: the text, an id and the time of the call. Kept until deleted by hand.</li>
+      <li>Uploaded files: the bytes, name, content type and size, plus a public link. Kept until deleted by hand.</li>
+      <li>OAuth records: registered client names, and access and refresh tokens. Kept on this server; no password and no email address is stored.</li>
+      <li>Server logs: request paths and errors, kept by the host's container log for a short time. Note text, file contents and tokens are not logged.</li>
+    </ul>
+    <p>
+      <code>transcribe</code> is the one tool that sends data off this host: the audio file at the given url
+      is passed to an OpenAI-compatible model service (OpenRouter) to make the transcript. The other three
+      tools keep everything on this server. No analytics, no cookies, no third-party trackers.
+    </p>
+
+    <h2>Taking it down</h2>
+    <p>The owner can revoke a token at <code>POST /revoke</code> or delete the whole data directory on the host.</p>
+    <p><a href="/">Back</a></p>
+  </body>
+</html>
