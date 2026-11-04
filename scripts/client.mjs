@@ -6,7 +6,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
 const BASE = (process.env.MEMO_BASE || 'http://localhost:8787').replace(/\/$/, '');
-const PHRASE = process.env.MEMO_PHRASE || '';
+const PHRASE = process.env.MEMO_PHRASE || process.env.APPROVE_PHRASE || '';
 const REDIRECT = 'http://localhost:9999/callback';
 
 const b64url = (buf) => buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
