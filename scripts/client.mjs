@@ -1,4 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
@@ -8,7 +11,21 @@ const REDIRECT = 'http://localhost:9999/callback';
 
 const b64url = (buf) => buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
+// Client registration is rate limited, so keep a token until it is nearly expired.
+const CACHE = path.join(os.tmpdir(), 'memo-token-cache.json');
+
+function cached() {
+  try {
+    const saved = JSON.parse(fs.readFileSync(CACHE, 'utf8'));
+    if (saved.base === BASE && saved.expiresAt > Date.now() + 60_000) return saved.token;
+  } catch {}
+  return null;
+}
+
 export async function getToken() {
+  const fresh = cached();
+  if (fresh) return fresh;
+
   const reg = await fetch(`${BASE}/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -54,7 +71,10 @@ export async function getToken() {
     })
   });
   if (!tok.ok) throw new Error(`token failed: ${tok.status} ${await tok.text()}`);
-  return (await tok.json()).access_token;
+  const body = await tok.json();
+  const expiresAt = Date.now() + (body.expires_in ?? 3600) * 1000;
+  fs.writeFileSync(CACHE, JSON.stringify({ base: BASE, token: body.access_token, expiresAt }), { mode: 0o600 });
+  return body.access_token;
 }
 
 export async function connect() {

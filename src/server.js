@@ -7,7 +7,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { mcpAuthRouter, getOAuthProtectedResourceMetadataUrl } from '@modelcontextprotocol/sdk/server/auth/router.js';
 import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
 import { buildServer } from './tools.js';
-import { handleModern, isModernRequest } from './modern.js';
+import { handleModern, isModernRequest, SUPPORTED_VERSIONS } from './modern.js';
 import { approvePageError, handleApprove, makeProvider } from './oauth.js';
 import { BASE_URL, PLAN_URL, PORT, RESOURCE_URL } from './config.js';
 import { db, load, readUpload } from './store.js';
@@ -56,7 +56,9 @@ app.post('/approve', (req, res) => {
 const planHtml = fs.readFileSync(path.join(here, '..', 'public', 'plan.html'), 'utf8');
 app.get('/plan', (_req, res) => res.type('html').send(planHtml));
 app.get('/', (_req, res) => res.redirect(302, '/plan'));
-app.get('/healthz', (_req, res) => res.json({ ok: true, notes: db().notes.length }));
+app.get('/healthz', (_req, res) =>
+  res.json({ ok: true, notes: db().notes.length, protocols: SUPPORTED_VERSIONS })
+);
 
 app.get(['/f/:id', '/f/:id/:name'], (req, res) => {
   const file = readUpload(req.params.id);
