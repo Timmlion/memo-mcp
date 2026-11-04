@@ -63,6 +63,10 @@ export async function transcribeAudio(url) {
 
   const audioRes = await fetch(url, { signal: AbortSignal.timeout(30_000) });
   if (!audioRes.ok) throw new Error(`could not read the audio: HTTP ${audioRes.status}`);
+  const type = String(audioRes.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (type === 'text/html' || type === 'application/xhtml+xml') {
+    throw new Error(`the url answered with ${type}, not audio: it is a web page, not a recording`);
+  }
   const buf = Buffer.from(await audioRes.arrayBuffer());
   if (!buf.length) throw new Error('the audio file is empty');
   if (buf.length > MAX_BYTES) throw new Error(`the audio is over ${MAX_BYTES} bytes`);

@@ -96,7 +96,7 @@ const definitions = [
         const result = await transcribeAudio(url);
         return { text: `${result.segments.length} segment(s)`, structuredContent: result };
       } catch (err) {
-        return { text: `transcription failed: ${err.message}`, isError: true };
+        return { text: `transcription failed: ${url}: ${err.message}`, isError: true };
       }
     }
   }
